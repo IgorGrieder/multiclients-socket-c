@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,33 +9,18 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define MSG_SIZE 256
-
-typedef enum {
-  MSG_REQUEST,
-  MSG_RESPONSE,
-  MSG_RESULT,
-  MSG_PLAY_AGAIN_REQUEST,
-  MSG_PLAY_AGAIN_RESPONSE,
-  MSG_ERROR,
-  MSG_END
-} MessageType;
-
-typedef struct {
-  int type;
-  int client_action;
-  int server_action;
-  int result;
-  int client_wins;
-  int server_wins;
-  char message[MSG_SIZE];
-} GameMessage;
+#define STR_LEN 11
 
 // Hoisting de funções
 void endWithErrorMessage(const char *message);
-void printChoices(const char *plays[]);
-void sendClientResponse(GameMessage *game_message, int client_play, int type,
-                        int client_socket);
+
+typedef struct {
+  int32_t player_id;
+  float value;
+  char type[STR_LEN];
+  float player_profit;
+  float house_profit;
+} aviator_msg;
 
 int main(int argc, char *argv[]) {
   struct sockaddr_in client_addr_ipv4;
@@ -47,7 +33,7 @@ int main(int argc, char *argv[]) {
   int client_socket;
   int is_IPv4 = 0;
   int stop_game = 1;
-  GameMessage game_message;
+  aviator_msg aviator_message;
 
   const char *plays[] = {"Nuclear Attack", "Intercept Attack", "Cyber Attack",
                          "Drone Strike", "Bio Attack"};
@@ -206,13 +192,4 @@ int main(int argc, char *argv[]) {
 void endWithErrorMessage(const char *message) {
   perror(message);
   exit(EXIT_FAILURE);
-}
-
-// Função para enviar uma resposta ao servidor
-void sendClientResponse(GameMessage *game_message, int client_play, int type,
-                        int client_socket) {
-  memset(game_message, 0, sizeof(*game_message));
-  game_message->client_action = client_play;
-  game_message->type = type;
-  send(client_socket, game_message, sizeof(*game_message), 0);
 }

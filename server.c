@@ -9,41 +9,18 @@
 #include <time.h>
 #include <unistd.h>
 
-#define MSG_SIZE 256
-
-typedef enum {
-  MSG_REQUEST,
-  MSG_RESPONSE,
-  MSG_RESULT,
-  MSG_PLAY_AGAIN_REQUEST,
-  MSG_PLAY_AGAIN_RESPONSE,
-  MSG_ERROR,
-  MSG_END
-} MessageType;
-
-typedef struct {
-  int type;
-  int client_action;
-  int server_action;
-  int result;
-  int client_wins;
-  int server_wins;
-  char message[MSG_SIZE];
-} GameMessage;
+#define STR_LEN 11
 
 // Hoisting de funções
 void endWithErrorMessage(const char *message);
-void showUserPlayOptions(GameMessage *msg);
-void resetGame(int *server_wins, int *client_wins);
-int randNum();
-void showUserResult(GameMessage *game_message, int server_action,
-                    int client_action, int client_socket_conn, char *actions[],
-                    int result, int is_draw);
-int checkGameWillContinue(GameMessage *game_message, int client_socket_conn);
-void showUserEndGameMessage(GameMessage *game_message, int client_socket_conn,
-                            int client_wins, int server_wins);
-void resolveUserErrorInput(GameMessage *game_message, int client_socket_conn,
-                           int is_error_play, int *client_act);
+
+typedef struct {
+  int32_t player_id;
+  float value;
+  char type[STR_LEN];
+  float player_profit;
+  float house_profit;
+} aviator_msg;
 
 int main(int argc, char *argv[]) {
   int server_socket;
@@ -53,7 +30,7 @@ int main(int argc, char *argv[]) {
   void *addr_ptr;
   socklen_t addr_len;
 
-  GameMessage game_message;
+  aviator_msg aviator_message;
 
   int client_wins = 0;
   int server_wins = 0;
