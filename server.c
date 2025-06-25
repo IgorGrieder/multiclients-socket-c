@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,6 +14,7 @@
 
 // Hoisting de funções
 void endWithErrorMessage(const char *message);
+void *handle_client(void *arg);
 
 typedef struct {
   int32_t player_id;
@@ -29,21 +31,19 @@ int main(int argc, char *argv[]) {
   struct sockaddr_in6 server_addr_ipv6;
   void *addr_ptr;
   socklen_t addr_len;
-
+  pthread_t thread;
   aviator_msg aviator_message;
   int current_players = 0;
-
-  int client_wins = 0;
-  int server_wins = 0;
+  int user_id = 1;
   int is_IPv4 = 0;
   int port;
-  int stop_game = 1;
+  // Apos o aviao explodir sempre mostrar o profit da casa!
+  float current_profit = 0;
 
   // Caso o numero de argumentos passados ao processo não seja condizente com
   // o necessário deve-se encerrar o programa
   if (argc != 3) {
-    endWithErrorMessage("Insira corretamente a quantidade de argumentos para o "
-                        "sevridor \n <Versão Protocolo IP> <Porta> ");
+    endWithErrorMessage("Invalid number of arguments ");
   }
 
   // Indicando o protocolo a ser utilizado no programa
@@ -122,6 +122,9 @@ int main(int argc, char *argv[]) {
       endWithErrorMessage("Falha ao aceitar a conexão do cliente");
     }
 
+    pthread_create(&thread, NULL, handle_client, client_info); // Does NOT block
+    pthread_detach(thread);                                    // Does NOT block
+
     printf("Cliente conectado.\n");
 
     close(client_socket_conn);
@@ -132,6 +135,12 @@ int main(int argc, char *argv[]) {
   close(server_socket);
 
   return EXIT_SUCCESS;
+}
+
+void *handle_client(void *arg) {
+  client_info_t *client = (client_info_t *)arg; // Cast it back
+  // Now we can use client->client_socket, client->client_id, etc.
+  return NULL;
 }
 
 // Função para exibir erros genéricos e finalizar a execução do programa sem
