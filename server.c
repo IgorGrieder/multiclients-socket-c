@@ -11,10 +11,8 @@
 #include <unistd.h>
 
 #define STR_LEN 11
-
-// Hoisting de funções
-void endWithErrorMessage(const char *message);
-void *handle_client(void *arg);
+#define PLAYERS_MAX 10
+#define NICKNAME 13
 
 typedef struct {
   int32_t player_id;
@@ -23,6 +21,32 @@ typedef struct {
   float player_profit;
   float house_profit;
 } aviator_msg;
+
+typedef struct {
+  int socket;
+  int player_id;
+  char nickname[NICKNAME + 1];
+  float current_bet;
+  float profit;
+  int has_bet;
+  int has_cashed_out;
+  pthread_t thread;
+  int active;
+} client_info;
+
+// Variáveis globais para acompanhamento de estados
+client_info clients[PLAYERS_MAX];
+float house_profit = 0.0;
+int game_running = 1;
+int current_players = 0;
+int is_bet_phase = 0;
+int is_flight_phase = 0;
+float mult = 1;
+float explosion = 0;
+
+// Hoisting de funções
+void endWithErrorMessage(const char *message);
+void *handle_client(void *arg);
 
 int main(int argc, char *argv[]) {
   int server_socket;
@@ -33,12 +57,9 @@ int main(int argc, char *argv[]) {
   socklen_t addr_len;
   pthread_t thread;
   aviator_msg aviator_message;
-  int current_players = 0;
   int user_id = 1;
   int is_IPv4 = 0;
   int port;
-  // Apos o aviao explodir sempre mostrar o profit da casa!
-  float current_profit = 0;
 
   // Caso o numero de argumentos passados ao processo não seja condizente com
   // o necessário deve-se encerrar o programa
