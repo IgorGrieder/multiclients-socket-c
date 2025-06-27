@@ -30,7 +30,6 @@ typedef struct {
   float profit;
   int has_bet;
   int has_cashed_out;
-  pthread_t thread;
   int active;
 } client_info;
 
@@ -64,7 +63,7 @@ int main(int argc, char *argv[]) {
   // Caso o numero de argumentos passados ao processo não seja condizente com
   // o necessário deve-se encerrar o programa
   if (argc != 3) {
-    endWithErrorMessage("Invalid number of arguments ");
+    endWithErrorMessage("Invalid number of arguments");
   }
 
   // Indicando o protocolo a ser utilizado no programa
@@ -73,14 +72,14 @@ int main(int argc, char *argv[]) {
   } else if (strcmp(argv[1], "v6") == 0) {
     is_IPv4 = 0;
   } else {
-    endWithErrorMessage("Insira um protocolo válido (v4 ou v6)");
+    endWithErrorMessage("Please choose an ip protocol(v4 or v6)");
   }
 
   // Convertendo a porta a ser utilizada
   port = atoi(argv[2]);
   // Checando se a porta está no range de 16 bits
   if (port <= 0 || port > 65535) {
-    endWithErrorMessage("Porta inválida");
+    endWithErrorMessage("Invalid port");
   }
 
   if (is_IPv4 == 1) {
@@ -95,14 +94,14 @@ int main(int argc, char *argv[]) {
     // Criando socket
     server_socket = socket(server_addr_ipv4.sin_family, SOCK_STREAM, 0);
     if (server_socket < 0) {
-      endWithErrorMessage("Erro ao criar socket IPv4 server side");
+      endWithErrorMessage("Error creating ipv4 socket");
     }
 
     // Acoplando o socket
     int bindCheck =
         bind(server_socket, (struct sockaddr *)&server_addr_ipv4, addr_len);
     if (bindCheck < 0) {
-      endWithErrorMessage("Erro ao executar o bind do socket IPv4");
+      endWithErrorMessage("Error binding ipv4 socket");
     }
 
   } else {
@@ -117,20 +116,20 @@ int main(int argc, char *argv[]) {
     // Criando socket
     server_socket = socket(server_addr_ipv6.sin6_family, SOCK_STREAM, 0);
     if (server_socket < 0) {
-      endWithErrorMessage("Erro ao criar socket IPv6 server side");
+      endWithErrorMessage("Error creating ipv6 socket");
     }
 
     // Acoplando o socket
     int bindCheck =
         bind(server_socket, (struct sockaddr *)&server_addr_ipv6, addr_len);
     if (bindCheck < 0) {
-      endWithErrorMessage("Erro ao executar o bind do socket IPv6");
+      endWithErrorMessage("Error binding ipv6 socket");
     }
   }
 
   int checkListen = listen(server_socket, 1);
   if (checkListen < 0) {
-    endWithErrorMessage("Erro ao escutar no servidor\n");
+    endWithErrorMessage("Error while listening in the socket");
   }
 
   // Loop infinito para que caso o cliente feche a conexão o servidor já esteja
@@ -140,11 +139,11 @@ int main(int argc, char *argv[]) {
     // Sempre aceitar uma nova conexão até o servidor falhar
     client_socket_conn = accept(server_socket, addr_ptr, &addr_len);
     if (client_socket_conn < 0) {
-      endWithErrorMessage("Falha ao aceitar a conexão do cliente");
+      endWithErrorMessage("Failed to acccept client socket connection");
     }
 
-    pthread_create(&thread, NULL, handle_client, client_info); // Does NOT block
-    pthread_detach(thread);                                    // Does NOT block
+    pthread_create(&thread, NULL, handle_client, client_info);
+    pthread_detach(thread);
 
     printf("Cliente conectado.\n");
 
