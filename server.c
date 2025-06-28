@@ -221,15 +221,66 @@ void *handle_client(void *arg) {
   aviator_msg aviator_message;
 
   while (client->active && server_running) {
-    // Enviar ao cliente que a rodada começou
-    memset(&aviator_message, 0, sizeof(aviator_msg));
-    aviator_message.value = countdown;
-    strcpy(aviator_message.type, "start");
+    // Enviar ao cliente que a rodada começou caso ele não possua apostas ainda
+    if (is_bet_phase && !client->has_bet) {
+      memset(&aviator_message, 0, sizeof(aviator_msg));
+      aviator_message.value = countdown;
+      strcpy(aviator_message.type, "start");
 
-    send(client->socket_conn, &aviator_message, sizeof(aviator_msg), 0);
+      send(client->socket_conn, &aviator_message, sizeof(aviator_msg), 0);
+    }
 
     // Esperando resposta para apostas do cliente
     recv(client->socket_conn, &aviator_message, sizeof(aviator_msg), 0);
+
+    if (strcmp(aviator_message.type, "bet") == 0 && is_bet_phase) {
+      // Checando caso o cliente já tenha feito uma aposta na rodada
+      if (client->has_bet) {
+        continue;
+      }
+
+      client->current_bet = aviator_message.value;
+      client->has_bet = 1;
+      client->has_cashed_out = 0;
+
+      // TO-DO Logar aposta do cliente
+    } else if (strcmp(aviator_message.type, "cashout") == 0 &&
+               is_flight_phase) {
+      // Checando se o cliente já não realizou um cashout
+      if (client->has_cashed_out) {
+        continue;
+      }
+
+      client->has_cashed_out = 1;
+      // Calculando o ganho pelo cliente
+      float payout = client->current_bet * mult;
+      float transaction_balance = payout - client->current_bet;
+
+      client->profit += transaction_balance;
+      house_profit -= transaction_balance;
+
+      // To-DO log no servidor do cashout
+
+      memset(&aviator_message, 0, sizeof(aviator_msg));
+      strcpy(aviator_message.type, "payout");
+      aviator_message.value = payout;
+      aviator_message.player_id = client->player_id;
+      aviator_message.player_profit = client->profit;
+      aviator_message.house_profit = house_profit;
+      send(client->socket_conn, &aviator_message, sizeof(aviator_msg), 0);
+
+      // TO-DO Log do payout no servidor
+
+      // Enviar profit atualizado do jogador
+      strcpy(aviator_message.type, "profit");
+      send(client->socket_conn, &aviator_message, sizeof(aviator_msg), 0);
+
+      // TO-DO log profit servdior
+    } else if (strcmp(aviator_message.type, "bye") == 0) {
+      // TO-DO fazer funcao de desligamento do cliente
+      remove_client(client->player_id);
+      break;
+    }
   }
 
   return NULL;
