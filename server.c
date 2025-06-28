@@ -1,4 +1,5 @@
 #include <arpa/inet.h>
+#include <math.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <pthread.h>
@@ -13,6 +14,7 @@
 #define STR_LEN 11
 #define PLAYERS_MAX 10
 #define NICKNAME 13
+#define RESP_LEN 256
 
 typedef struct {
   int32_t player_id;
@@ -34,9 +36,10 @@ typedef struct {
 } client_info;
 
 // Variáveis globais para acompanhamento de estados
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 client_info clients[PLAYERS_MAX];
 float house_profit = 0.0;
-int game_running = 1;
+int server_running = 1;
 int current_players = 0;
 int is_bet_phase = 0;
 int is_flight_phase = 0;
@@ -46,6 +49,8 @@ float explosion = 0;
 // Hoisting de funções
 void endWithErrorMessage(const char *message);
 void *handle_client(void *arg);
+void close_all_connections(int server_socket);
+float game_explosion(float total_bet);
 
 int main(int argc, char *argv[]) {
   int server_socket;
@@ -132,35 +137,43 @@ int main(int argc, char *argv[]) {
     endWithErrorMessage("Error while listening in the socket");
   }
 
-  // Loop infinito para que caso o cliente feche a conexão o servidor já esteja
-  // preparado para aceitar novas conexões
-  while (1) {
+  while (server_running) {
 
-    // Sempre aceitar uma nova conexão até o servidor falhar
     client_socket_conn = accept(server_socket, addr_ptr, &addr_len);
     if (client_socket_conn < 0) {
       endWithErrorMessage("Failed to acccept client socket connection");
     }
 
-    pthread_create(&thread, NULL, handle_client, client_info);
-    pthread_detach(thread);
+    // Limite de 10 jogadores ao mesmo tempo
+    if (current_players < 10) {
+      // Invocação da funçáo do jogo, sem bloquear a main thread
+      pthread_create(&thread, NULL, game, client_info);
+      pthread_detach(thread);
 
-    printf("Cliente conectado.\n");
-
-    close(client_socket_conn);
+      printf("Cliente conectado.\n");
+    } else {
+      // Fechando a conexão
+      memset(&aviator_message, 0, sizeof(aviator_msg));
+      snprintf(aviator_message.type, STR_LEN, "bye");
+    }
   }
 
   // Fechando as conexões gerais
-  close(client_socket_conn);
-  close(server_socket);
+  close_all_connections(server_socket);
 
   return EXIT_SUCCESS;
 }
 
+// Função de handler para conexões de clientes
 void *handle_client(void *arg) {
   client_info_t *client = (client_info_t *)arg; // Cast it back
   // Now we can use client->client_socket, client->client_id, etc.
   return NULL;
+}
+
+// Função para fechar todas as conexões
+void close_all_connections(int server_socket) {
+  // TO-DO
 }
 
 // Função para exibir erros genéricos e finalizar a execução do programa sem
@@ -168,4 +181,15 @@ void *handle_client(void *arg) {
 void endWithErrorMessage(const char *message) {
   perror(message);
   exit(EXIT_FAILURE);
+}
+
+float game_explosion(float total_bet) {
+  if (current_players == 0)
+    return 2.0;
+
+  float k = 100.0;
+  float alpha = 0.5;
+
+  float explosion = 1.0 + pow((current_players + total_bet / k), alpha);
+  return explosion;
 }
