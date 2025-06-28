@@ -41,19 +41,20 @@ pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 client_info clients[PLAYERS_MAX];
 float house_profit = 0.0;
 int server_running = 1;
-int current_players = 0;
 int is_bet_phase = 0;
 int is_flight_phase = 0;
 float mult = 1;
 float explosion = 0;
+float countdown = 10;
 
 // Hoisting de funções
 void endWithErrorMessage(const char *message);
 void *handle_client(void *arg);
 void *handle_game(void *arg);
 void close_all_connections(int server_socket);
-float game_explosion(float total_bet);
+float game_explosion(int num_of_players, float total_bet);
 void send_all_message(aviator_msg *message);
+void start_new_game();
 
 int main(int argc, char *argv[]) {
   int server_socket;
@@ -163,24 +164,25 @@ int main(int argc, char *argv[]) {
 
     if (available_idx != -1) {
       clients[available_idx].socket_conn = client_socket_conn;
-      clients[available_idx].player_id = current_players++;
+      clients[available_idx].player_id = user_id;
       clients[available_idx].profit = 0;
       clients[available_idx].current_bet = 0;
       clients[available_idx].has_bet = 0;
       clients[available_idx].has_cashed_out = 0;
       clients[available_idx].active = 1;
 
-      // Invocação da função do jogo, sem bloquear a main thread
+      // Invocação da função do jogo, sem bloquear a thread de conexões
       pthread_create(&clients[available_idx].client_thread, NULL, handle_client,
                      &clients[available_idx]);
-      printf("Cliente conectado.\n");
+      printf("Client conected.\n");
 
+      user_id++;
     } else {
       // Fechando a conexão por falta de espaço no jogo
       memset(&aviator_message, 0, sizeof(aviator_msg));
       snprintf(aviator_message.type, STR_LEN, "bye");
 
-      printf("Limites de conexões ultrapassado.\n");
+      printf("Max number of players reached.\n");
       close(client_socket_conn);
     }
     pthread_mutex_unlock(&lock);
@@ -194,14 +196,61 @@ int main(int argc, char *argv[]) {
 
 // Função de handler para a execução do jogo ser em uma outra thread
 void *handle_game(void *arg) {
-  // TO-DO
+  while (server_running) {
+    // Aguardar pelo menos um cliente se conectar para de fato a partida iniciar
+    int client_num = 0;
+    while (!client_num) {
+      pthread_mutex_lock(&lock);
+      for (int i = 0; i < PLAYERS_MAX; i++) {
+        if (clients[i].active) {
+          break;
+        }
+      }
+      pthread_mutex_unlock(&lock);
+    }
+
+    // Partida irá começar
+    start_new_game();
+  }
   return NULL;
 }
 
 // Função de handler para conexões de clientes
 void *handle_client(void *arg) {
   client_info *client = (client_info *)arg;
+  aviator_msg aviator_message;
+
+  while (client->active && server_running) {
+    // Enviar ao cliente que a rodada começou
+    memset(&aviator_message, 0, sizeof(aviator_msg));
+    aviator_message.value = countdown;
+    strcpy(aviator_message.type, "start");
+
+    send(client->socket_conn, &aviator_message, sizeof(aviator_msg), 0);
+
+    // Esperando resposta para apostas do cliente
+    recv(client->socket_conn, &aviator_message, sizeof(aviator_msg), 0);
+  }
+
   return NULL;
+}
+
+// Função para preparar o inicio de um novo jogo
+void start_new_game() {
+  is_bet_phase = 1;
+  is_flight_phase = 0;
+  countdown = 10;
+
+  // TO-DO colocar um log para o servidor
+  while (countdown > 0) {
+    // Esperar 1 segundo para a nova iteração
+    sleep(1);
+    countdown--;
+  }
+
+  is_bet_phase = 0;
+  is_flight_phase = 1;
+  // TO-DO colocar log para inicio da partida
 }
 
 // Função para fechar todas as conexões
@@ -216,14 +265,14 @@ void endWithErrorMessage(const char *message) {
   exit(EXIT_FAILURE);
 }
 
-float game_explosion(float total_bet) {
-  if (current_players == 0)
+float game_explosion(int num_of_players, float total_bet) {
+  if (num_of_players == 0)
     return 2.0;
 
   float k = 100.0;
   float alpha = 0.5;
 
-  float explosion = 1.0 + pow((current_players + total_bet / k), alpha);
+  float explosion = 1.0 + pow((num_of_players + total_bet / k), alpha);
   return explosion;
 }
 
