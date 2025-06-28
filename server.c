@@ -25,7 +25,7 @@ typedef struct {
 } aviator_msg;
 
 typedef struct {
-  int socket;
+  int socket_conn;
   int player_id;
   char nickname[NICKNAME + 1];
   float current_bet;
@@ -53,6 +53,7 @@ void *handle_client(void *arg);
 void *handle_game(void *arg);
 void close_all_connections(int server_socket);
 float game_explosion(float total_bet);
+void send_all_message(aviator_msg *message);
 
 int main(int argc, char *argv[]) {
   int server_socket;
@@ -139,6 +140,10 @@ int main(int argc, char *argv[]) {
     endWithErrorMessage("Error while listening in the socket");
   }
 
+  // Separando a execução do jogo em outra thread, mantendo a main thread de
+  // sem locks
+  pthread_create(&game_thread, NULL, handle_game, NULL);
+
   while (server_running) {
 
     client_socket_conn = accept(server_socket, addr_ptr, &addr_len);
@@ -146,7 +151,7 @@ int main(int argc, char *argv[]) {
       endWithErrorMessage("Failed to acccept client socket connection");
     }
 
-    // Procedimento para checar se o limite de jgoadores foi ultrapassado
+    // Procedimento para checar se o limite de jogadores foi ultrapassado
     pthread_mutex_lock(&lock);
     int available_idx = -1;
     for (int i = 0; i < PLAYERS_MAX; i++) {
@@ -157,7 +162,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (available_idx != -1) {
-      clients[available_idx].socket = client_socket_conn;
+      clients[available_idx].socket_conn = client_socket_conn;
       clients[available_idx].player_id = current_players++;
       clients[available_idx].profit = 0;
       clients[available_idx].current_bet = 0;
@@ -165,16 +170,17 @@ int main(int argc, char *argv[]) {
       clients[available_idx].has_cashed_out = 0;
       clients[available_idx].active = 1;
 
-      // Invocação da funçáo do jogo, sem bloquear a main thread
+      // Invocação da função do jogo, sem bloquear a main thread
       pthread_create(&clients[available_idx].client_thread, NULL, handle_client,
                      &clients[available_idx]);
       printf("Cliente conectado.\n");
 
     } else {
-      // Fechando a conexão
+      // Fechando a conexão por falta de espaço no jogo
       memset(&aviator_message, 0, sizeof(aviator_msg));
       snprintf(aviator_message.type, STR_LEN, "bye");
 
+      printf("Limites de conexões ultrapassado.\n");
       close(client_socket_conn);
     }
     pthread_mutex_unlock(&lock);
@@ -219,4 +225,19 @@ float game_explosion(float total_bet) {
 
   float explosion = 1.0 + pow((current_players + total_bet / k), alpha);
   return explosion;
+}
+
+// Função para enviar uma mensagem para todos os jogadores disponíveis
+// atualmente
+void send_all_message(aviator_msg *message) {
+  // Acredito necessitar de um lock para não ocorrer de um cliente deixar de
+  // estar ativo no instante em que a mensagem estaria sendo direcionada para
+  // ele
+  pthread_mutex_lock(&lock);
+  for (int i = 0; i < PLAYERS_MAX; i++) {
+    if (clients[i].active) {
+      send(clients[i].socket_conn, message, sizeof(aviator_msg), 0);
+    }
+  }
+  pthread_mutex_unlock(&lock);
 }
