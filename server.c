@@ -33,10 +33,11 @@ typedef struct {
   int has_bet;
   int has_cashed_out;
   int active;
+  pthread_t client_thread;
 } client_info;
 
 // Variáveis globais para acompanhamento de estados
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 client_info clients[PLAYERS_MAX];
 float house_profit = 0.0;
 int server_running = 1;
@@ -49,6 +50,7 @@ float explosion = 0;
 // Hoisting de funções
 void endWithErrorMessage(const char *message);
 void *handle_client(void *arg);
+void *handle_game(void *arg);
 void close_all_connections(int server_socket);
 float game_explosion(float total_bet);
 
@@ -59,7 +61,7 @@ int main(int argc, char *argv[]) {
   struct sockaddr_in6 server_addr_ipv6;
   void *addr_ptr;
   socklen_t addr_len;
-  pthread_t thread;
+  pthread_t game_thread;
   aviator_msg aviator_message;
   int user_id = 1;
   int is_IPv4 = 0;
@@ -144,18 +146,38 @@ int main(int argc, char *argv[]) {
       endWithErrorMessage("Failed to acccept client socket connection");
     }
 
-    // Limite de 10 jogadores ao mesmo tempo
-    if (current_players < 10) {
-      // Invocação da funçáo do jogo, sem bloquear a main thread
-      pthread_create(&thread, NULL, game, client_info);
-      pthread_detach(thread);
+    // Procedimento para checar se o limite de jgoadores foi ultrapassado
+    pthread_mutex_lock(&lock);
+    int available_idx = -1;
+    for (int i = 0; i < PLAYERS_MAX; i++) {
+      if (!clients[i].active) {
+        available_idx = i;
+        break;
+      }
+    }
 
+    if (available_idx != -1) {
+      clients[available_idx].socket = client_socket_conn;
+      clients[available_idx].player_id = current_players++;
+      clients[available_idx].profit = 0;
+      clients[available_idx].current_bet = 0;
+      clients[available_idx].has_bet = 0;
+      clients[available_idx].has_cashed_out = 0;
+      clients[available_idx].active = 1;
+
+      // Invocação da funçáo do jogo, sem bloquear a main thread
+      pthread_create(&clients[available_idx].client_thread, NULL, handle_client,
+                     &clients[available_idx]);
       printf("Cliente conectado.\n");
+
     } else {
       // Fechando a conexão
       memset(&aviator_message, 0, sizeof(aviator_msg));
       snprintf(aviator_message.type, STR_LEN, "bye");
+
+      close(client_socket_conn);
     }
+    pthread_mutex_unlock(&lock);
   }
 
   // Fechando as conexões gerais
@@ -164,10 +186,15 @@ int main(int argc, char *argv[]) {
   return EXIT_SUCCESS;
 }
 
+// Função de handler para a execução do jogo ser em uma outra thread
+void *handle_game(void *arg) {
+  // TO-DO
+  return NULL;
+}
+
 // Função de handler para conexões de clientes
 void *handle_client(void *arg) {
-  client_info_t *client = (client_info_t *)arg; // Cast it back
-  // Now we can use client->client_socket, client->client_id, etc.
+  client_info *client = (client_info *)arg;
   return NULL;
 }
 
