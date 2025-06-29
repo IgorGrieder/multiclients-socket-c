@@ -13,8 +13,6 @@
 
 #define STR_LEN 11
 #define PLAYERS_MAX 10
-#define NICKNAME 13
-#define RESP_LEN 256
 
 typedef struct {
   int32_t player_id;
@@ -27,7 +25,6 @@ typedef struct {
 typedef struct {
   int socket_conn;
   int player_id;
-  char nickname[NICKNAME + 1];
   float current_bet;
   float profit;
   int has_bet;
