@@ -15,6 +15,20 @@
 // Hoisting de funções
 void endWithErrorMessage(const char *message);
 
+typedef enum {
+  WAIT,
+  BET,
+  FlIGHT,
+} GameStates;
+
+// Variáveis globais para acompanhamento de estados
+char nickname[MAX_NICKNAME];
+int client_running = 1;
+int client_socket;
+int current_game_phase = WAIT; // 0: waiting, 1: betting phase, 2: flight phase
+int has_bet_this_round = 0;
+float current_bet = 0.0;
+
 typedef struct {
   int32_t player_id;
   float value;
@@ -31,7 +45,6 @@ int main(int argc, char *argv[]) {
 
   char *server_IP = argv[1];
   char *server_port = argv[2];
-  int client_socket;
   int is_IPv4 = 0;
   int stop_game = 1;
   aviator_msg aviator_message;
@@ -59,7 +72,7 @@ int main(int argc, char *argv[]) {
   // modelo de resposta
   int err = getaddrinfo(server_IP, server_port, &criteria, &response);
   if (err < 0) {
-    endWithErrorMessage("Erro ao identificar a versão do protocolo IP");
+    endWithErrorMessage("Error trying to identify the IP protocol");
   }
 
   if (response->ai_family == AF_INET) {
@@ -80,14 +93,14 @@ int main(int argc, char *argv[]) {
       // Criando socket
       client_socket = socket(client_addr_ipv4.sin_family, SOCK_STREAM, 0);
       if (client_socket < 0) {
-        endWithErrorMessage("Erro ao criar socket IPv4 client side");
+        endWithErrorMessage("Error creating ipv4 socket");
       }
 
       // Utilizando biblioteca para convertar IP para binário
       int checkBinaryIP;
       checkBinaryIP = inet_pton(AF_INET, argv[1], &client_addr_ipv4.sin_addr);
       if (checkBinaryIP <= 0) {
-        endWithErrorMessage("Endereço inválido");
+        endWithErrorMessage("Invalid address");
       }
 
       int checkConnection;
@@ -112,14 +125,14 @@ int main(int argc, char *argv[]) {
 
       client_socket = socket(client_addr_ipv6.sin6_family, SOCK_STREAM, 0);
       if (client_socket < 0) {
-        endWithErrorMessage("Erro ao criar socket IPv6 client side");
+        endWithErrorMessage("Error creating ipv4 socket");
       }
 
       // Utilizando biblioteca para convertar IP para binário
       int checkBinaryIP;
       checkBinaryIP = inet_pton(AF_INET6, argv[1], &client_addr_ipv6.sin6_addr);
       if (checkBinaryIP <= 0) {
-        endWithErrorMessage("Endereço inválido");
+        endWithErrorMessage("Invalid address");
       }
 
       // Conectando ao servidor - Um loop infinito ate que a conexao seja aceita
@@ -135,58 +148,74 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  printf("Conectado ao servidor.\n");
+  printf("Conected\n");
 
   // Loop sem fim de execução do jogo
-  while (stop_game) {
-    // Chamada blocking que armazena o retorno do server
-    recv(client_socket, &game_message, sizeof(game_message), 0);
+  while (client_running) {
+    ssize_t bytes_received =
+        recv(client_socket, &aviator_message, sizeof(aviator_msg), 0);
 
-    switch (game_message.type) {
-    case MSG_REQUEST:
-      printf("%s", game_message.message);
-
-      int action;
-      scanf("%d", &action);
-
-      // Enviando uma mensagem ao servidor com o type da mensagem e a ação do
-      // usuário
-      sendClientResponse(&game_message, action, MSG_RESPONSE, client_socket);
+    if (bytes_received <= 0) {
+      // Connection lost
       break;
-    case MSG_RESULT:
-      printf("%s", game_message.message);
+    }
 
+    // Process different message types
+    if (strcmp(aviator_message.type, "start") == 0) {
+      current_game_phase = BET;
+      has_bet_this_round = 0;
+      current_bet = 0.0;
+
+      printf("Rodada aberta! Digite o valor da aposta ou digite [Q] para sair "
+             "(%.0f segundos restantes):\n",
+             aviator_message.value);
+      fflush(stdout);
+
+    } else if (strcmp(aviator_message.type, "closed") == 0) {
+      current_game_phase = FlIGHT;
+      printf("Apostas encerradas! Não é mais possível apostar nesta rodada.\n");
+
+      if (has_bet_this_round) {
+        printf("Digite [C] para sacar.\n");
+      }
+      fflush(stdout);
+
+    } else if (strcmp(aviator_message.type, "multiplier") == 0) {
+      printf("Multiplicador atual: %.2fx\n", aviator_message.value);
+      fflush(stdout);
+
+    } else if (strcmp(aviator_message.type, "explode") == 0) {
+      current_game_phase = WAIT;
+      printf("Aviãozinho explodiu em: %.2fx\n", aviator_message.value);
+      fflush(stdout);
+
+    } else if (strcmp(aviator_message.type, "payout") == 0) {
+      printf("Você sacou em %.2fx e ganhou R$ %.2f!\n",
+             aviator_message.value / current_bet, aviator_message.value);
+      printf("Profit atual: R$ %.2f\n", aviator_message.player_profit);
+      fflush(stdout);
+
+    } else if (strcmp(aviator_message.type, "profit") == 0) {
+      if (aviator_message.player_id != 0) {
+        // Individual profit update
+        if (has_bet_this_round && current_game_phase == WAIT) {
+          // This means we lost our bet
+          printf("Você perdeu R$ %.2f. Tente novamente na próxima rodada! "
+                 "Aviãozinho tá pagando :)\n",
+                 current_bet);
+        }
+        printf("Profit atual: R$ %.2f\n", aviator_message.player_profit);
+      } else {
+        // House profit update
+        printf("Profit da casa: R$ %.2f\n", aviator_message.house_profit);
+      }
+      fflush(stdout);
+
+    } else if (strcmp(aviator_message.type, "bye") == 0) {
+      printf("O servidor caiu, mas sua esperança pode continuar de pé. Até "
+             "breve!\n");
+      client_running = 0;
       break;
-    case MSG_PLAY_AGAIN_REQUEST:
-      printf("%s", game_message.message);
-
-      int actionRequest;
-      scanf("%d", &actionRequest);
-
-      // Enviar resposta do usuário sobre querer jogar ou não
-      sendClientResponse(&game_message, actionRequest, MSG_PLAY_AGAIN_RESPONSE,
-                         client_socket);
-      break;
-    case MSG_ERROR:
-      printf("%s", game_message.message);
-
-      int decisionError;
-      scanf("%d", &decisionError);
-
-      // Enviar resposta do usuário sobre o erro reportado propagando type de
-      // error, já que não terá distinção por parte do servidor nesse caso
-      sendClientResponse(&game_message, decisionError, MSG_ERROR,
-                         client_socket);
-      break;
-    case MSG_END:
-      // Parando o jogo e exibindo mensagem do servidor do resultado
-      stop_game = 0;
-      printf("%s", game_message.message);
-
-      // Liberando memória
-      freeaddrinfo(response);
-      close(client_socket);
-      return EXIT_SUCCESS;
     }
   }
 }
@@ -196,4 +225,22 @@ int main(int argc, char *argv[]) {
 void endWithErrorMessage(const char *message) {
   perror(message);
   exit(EXIT_FAILURE);
+}
+
+// Função para indicar o servidor que o cliente não irá mais jogar
+// aviator_msg message;
+void shutdown_client() {
+  aviator_msg aviator_message;
+  printf("\nAposte com responsabilidade. A plataforma é nova e tá com horário "
+         "bugado. Volte logo, %s.\n",
+         nickname);
+
+  // Send bye message to server
+  memset(&aviator_message, 0, sizeof(aviator_msg));
+  strcpy(aviator_message.type, "bye");
+  send(client_socket, &aviator_message, sizeof(aviator_msg), 0);
+
+  client_running = 0;
+  close(client_socket);
+  exit(0);
 }
