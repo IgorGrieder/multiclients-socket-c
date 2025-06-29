@@ -276,18 +276,21 @@ void calculate_end_game() {
       clients[i].profit -= clients[i].current_bet;
       house_profit += clients[i].current_bet;
 
-      memset(&aviator_message, 0, sizeof(aviator_msg));
-      strcpy(aviator_message.type, "profit");
-      aviator_message.player_id = clients[i].player_id,
-      aviator_message.value = clients[i].profit,
-      aviator_message.player_profit = clients[i].profit,
-      aviator_message.house_profit = house_profit;
-
       logger("profit", clients[i].player_id, 0, 0, 0, 0, 0, 0,
              clients[i].profit, 0);
+    }
+  }
+
+  for (int i = 0; i < PLAYERS_MAX; i++) {
+    if (clients[i].active && clients[i].has_bet && !clients[i].has_cashed_out) {
+      memset(&aviator_message, 0, sizeof(aviator_msg));
+      strcpy(aviator_message.type, "profit");
+      aviator_message.house_profit = house_profit;
+      aviator_message.player_profit = clients[i].profit;
       send(clients[i].socket_conn, &aviator_message, sizeof(aviator_msg), 0);
     }
   }
+
   pthread_mutex_unlock(&lock);
   compute_ended = 1;
 }

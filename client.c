@@ -217,6 +217,7 @@ int main(int argc, char *argv[]) {
       if (has_bet_this_round && current_game_phase == WAIT) {
         // Caso seja um profit de cashout não precisa indicar o profit atual,
         // dado que ja foi indicado
+
         if (!has_cashedout_this_round) {
           printf("Você perdeu R$ %.2f. Tente novamente na próxima rodada! "
                  "Aviãozinho tá pagando :)\n",
