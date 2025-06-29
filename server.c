@@ -37,6 +37,7 @@ typedef struct {
 } client_info;
 
 // Variáveis globais para acompanhamento de estados
+int server_socket;
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 client_info clients[PLAYERS_MAX];
 float house_profit = 0;
@@ -58,9 +59,9 @@ void start_new_game();
 void remove_client(int player_id);
 void reset_past_play(int *active_players, float *total_bet);
 void calculate_end_game();
+void shutdown_server(int signal);
 
 int main(int argc, char *argv[]) {
-  int server_socket;
   int client_socket_conn;
   struct sockaddr_in server_addr_ipv4;
   struct sockaddr_in6 server_addr_ipv6;
@@ -143,6 +144,8 @@ int main(int argc, char *argv[]) {
   if (checkListen < 0) {
     endWithErrorMessage("Error while listening in the socket");
   }
+
+  signal(SIGINT, shutdown_server);
 
   // Separando a execução do jogo em outra thread, mantendo a main thread de
   // sem locks
@@ -253,6 +256,9 @@ void *handle_game(void *arg) {
     // TO-DO log da explosao deve ser feito
 
     calculate_end_game();
+
+    // Fazendo uma pausa de 5 segundos para a próxima rodada - Opcional
+    sleep(5);
   }
   return NULL;
 }
@@ -438,4 +444,29 @@ void send_all_message(aviator_msg *message) {
     }
   }
   pthread_mutex_unlock(&lock);
+}
+
+// Função para informar aos clientes que o servidor fechou a sua execução
+void shutdown_server(int signal) {
+  aviator_msg aviator_message;
+  server_running = 0;
+
+  // Enviar bye para todos
+  memset(&aviator_message, 0, sizeof(aviator_msg));
+  strcpy(aviator_message.type, "bye");
+  send_all_message(&aviator_message);
+  // TO-DO logar aqui o fim da conexao o servidor
+
+  // Fechando todos os sockets
+  pthread_mutex_lock(&lock);
+  for (int i = 0; i < PLAYERS_MAX; i++) {
+    if (clients[i].active) {
+      clients[i].active = 0;
+      close(clients[i].socket_conn);
+    }
+  }
+  pthread_mutex_unlock(&lock);
+
+  close(server_socket);
+  exit(0);
 }
