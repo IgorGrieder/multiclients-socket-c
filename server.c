@@ -60,6 +60,9 @@ void remove_client(int player_id);
 void reset_past_play(int *active_players, float *total_bet);
 void calculate_end_game();
 void shutdown_server(int signal);
+void logger(const char *event, int player_id, float multiplier, float explosion,
+            int num_players, float total_bet, float bet, float payout,
+            float player_profit, float house_profit);
 
 int main(int argc, char *argv[]) {
   int client_socket_conn;
@@ -469,4 +472,52 @@ void shutdown_server(int signal) {
 
   close(server_socket);
   exit(0);
+}
+
+// Função genérica para realizar o log dos eventos do servidor
+void logger(const char *event, int player_id, float multiplier, float explosion,
+            int num_players, float total_bet, float bet, float payout,
+            float player_profit, float house_profit) {
+  printf("event=%s", event);
+
+  if (player_id == -1) {
+    printf(" | id=*");
+  } else if (player_id > 0) {
+    printf(" | id=%d", player_id);
+  }
+
+  if (multiplier > 0) {
+    printf(" | m=%.2f", multiplier);
+  }
+
+  if (explosion > 0) {
+    printf(" | me=%.2f", explosion);
+  }
+
+  if (num_players > 0) {
+    printf(" | N=%d", num_players);
+  }
+
+  if (total_bet > 0) {
+    printf(" | V=%.2f", total_bet);
+  }
+
+  if (bet > 0) {
+    printf(" | bet=%.2f", bet);
+  }
+
+  if (payout > 0) {
+    printf(" | payout=%.2f", payout);
+  }
+
+  if (player_profit != 0) {
+    printf(" | player_profit=%.2f", player_profit);
+  }
+
+  if (house_profit != 0) {
+    printf(" | house_profit=%.2f", house_profit);
+  }
+
+  printf("\n");
+  fflush(stdout);
 }
