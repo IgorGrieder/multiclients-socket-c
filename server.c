@@ -50,7 +50,7 @@ void endWithErrorMessage(const char *message);
 void *handle_client(void *arg);
 void *handle_game(void *arg);
 void close_all_connections(int server_socket);
-float game_explosion(int num_of_players, float total_bet);
+float game_explosion();
 void send_all_message(aviator_msg *message);
 void start_new_game();
 void remove_client(int player_id);
@@ -237,7 +237,7 @@ void *handle_game(void *arg) {
     is_bet_phase = 0;
     is_flight_phase = 1;
 
-    float explosion_limit = game_explosion(active_players, total_bet);
+    float explosion_limit = game_explosion();
 
     while (mult < explosion_limit) {
       memset(&aviator_message, 0, sizeof(aviator_msg));
@@ -442,11 +442,25 @@ void endWithErrorMessage(const char *message) {
   exit(EXIT_FAILURE);
 }
 
-float game_explosion(int num_of_players, float total_bet) {
+float game_explosion() {
+  // Checando o valor total apostado e o valor de jogadores
+  int active_players = 0;
+  float total_bet = 0;
+  pthread_mutex_lock(&lock);
+  for (int i = 0; i < PLAYERS_MAX; i++) {
+    if (clients[i].active) {
+      clients[i].has_bet = 0;
+      clients[i].has_cashed_out = 0;
+      clients[i].current_bet = 0;
+      active_players++;
+      total_bet += clients[i].current_bet;
+    }
+  }
+  pthread_mutex_unlock(&lock);
   float constant = 0.01;
   float gamma = 0.5;
 
-  return pow((1.0 + num_of_players + total_bet * constant), gamma);
+  return pow((1.0 + active_players + total_bet * constant), gamma);
 }
 
 // Função para enviar uma mensagem para todos os jogadores disponíveis
