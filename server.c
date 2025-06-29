@@ -44,6 +44,7 @@ int is_flight_phase = 0;
 float mult = 1;
 float explosion = 0;
 float countdown = 10;
+int compute_ended = 0;
 
 // Hoisting de funções
 void endWithErrorMessage(const char *message);
@@ -288,6 +289,7 @@ void calculate_end_game() {
     }
   }
   pthread_mutex_unlock(&lock);
+  compute_ended = 1;
 }
 
 // Função de handler para conexões de clientes
@@ -352,10 +354,19 @@ void *handle_client(void *arg) {
 
       logger("payout", client->player_id, 0, 0, 0, 0, 0, payout, 0, 0);
 
+      // Loop até que tenha finalizado a computação do jogo, enviando para o
+      // usuário que fez cashout o valor da casa no final
+      while (1) {
+        if (compute_ended) {
+          break;
+        }
+      }
+
       // Enviar profit atualizado do jogador
       memset(&aviator_message, 0, sizeof(aviator_msg));
       strcpy(aviator_message.type, "profit");
       aviator_message.player_id = client->player_id;
+      aviator_message.house_profit = house_profit;
       send(client->socket_conn, &aviator_message, sizeof(aviator_msg), 0);
 
       logger("profit", client->player_id, 0, 0, 0, 0, 0, 0, client->profit, 0);
@@ -409,10 +420,10 @@ void start_new_game() {
   is_flight_phase = 0;
   countdown = 10;
   mult = 1;
+  compute_ended = 0;
 
   reset_past_play();
 
-  // TO-DO colocar um log para o servidor
   while (countdown > 0) {
     // Esperar 1 segundo para a nova iteração e enviar aos clientes o countdown
     // referente a sua conexão

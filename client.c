@@ -214,8 +214,6 @@ int main(int argc, char *argv[]) {
       fflush(stdout);
 
     } else if (strcmp(aviator_message.type, "profit") == 0) {
-      printf("Jogador fez cashout e caiu aqui para ver profit da casa\n");
-      printf("Vendo o player id que chegou: %d\n", aviator_message.player_id);
       if (has_bet_this_round && current_game_phase == WAIT) {
         // Caso seja um profit de cashout não precisa indicar o profit atual,
         // dado que ja foi indicado
