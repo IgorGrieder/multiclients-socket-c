@@ -39,7 +39,7 @@ typedef struct {
 // Variáveis globais para acompanhamento de estados
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 client_info clients[PLAYERS_MAX];
-float house_profit = 0.0;
+float house_profit = 0;
 int server_running = 1;
 int is_bet_phase = 0;
 int is_flight_phase = 0;
@@ -56,6 +56,7 @@ float game_explosion(int num_of_players, float total_bet);
 void send_all_message(aviator_msg *message);
 void start_new_game();
 void remove_client(int player_id);
+void reset_past_play(int *active_players, float *total_bet);
 
 int main(int argc, char *argv[]) {
   int server_socket;
@@ -212,6 +213,11 @@ void *handle_game(void *arg) {
 
     // Partida irá começar
     start_new_game();
+
+    float total_bet = 0;
+    int active_players = 0;
+    reset_past_play(&active_players, &total_bet);
+    end_game = game_explosion(active_players, total_bet);
   }
   return NULL;
 }
@@ -307,6 +313,20 @@ void remove_client(int player_id) {
   pthread_mutex_unlock(&lock);
 }
 
+void reset_past_play(int *active_players, float *total_bet) {
+  pthread_mutex_lock(&lock);
+  for (int i = 0; i < PLAYERS_MAX; i++) {
+    if (clients[i].active) {
+      clients[i].has_bet = 0;
+      clients[i].has_cashed_out = 0;
+      clients[i].current_bet = 0;
+      (*active_players)++;
+      *total_bet += clients[i].current_bet;
+    }
+  }
+  pthread_mutex_unlock(&lock);
+}
+
 // Função para preparar o inicio de um novo jogo
 void start_new_game() {
   is_bet_phase = 1;
@@ -341,7 +361,7 @@ float game_explosion(int num_of_players, float total_bet) {
   if (num_of_players == 0)
     return 2.0;
 
-  float k = 100.0;
+  float k = 100;
   float alpha = 0.5;
 
   float explosion = 1.0 + pow((num_of_players + total_bet / k), alpha);
