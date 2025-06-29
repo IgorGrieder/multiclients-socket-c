@@ -57,6 +57,7 @@ void send_all_message(aviator_msg *message);
 void start_new_game();
 void remove_client(int player_id);
 void reset_past_play(int *active_players, float *total_bet);
+void calculate_end_game();
 
 int main(int argc, char *argv[]) {
   int server_socket;
@@ -198,8 +199,11 @@ int main(int argc, char *argv[]) {
 
 // Função de handler para a execução do jogo ser em uma outra thread
 void *handle_game(void *arg) {
+  aviator_msg aviator_message;
+
   while (server_running) {
-    // Aguardar pelo menos um cliente se conectar para de fato a partida iniciar
+    // Aguardar pelo menos um cliente se conectar para de fato a partida
+    // iniciar
     int client_num = 0;
     while (!client_num) {
       pthread_mutex_lock(&lock);
@@ -217,9 +221,67 @@ void *handle_game(void *arg) {
     float total_bet = 0;
     int active_players = 0;
     reset_past_play(&active_players, &total_bet);
-    end_game = game_explosion(active_players, total_bet);
+
+    // Fechando as apostas e comunicando aos clientes
+    memset(&aviator_message, 0, sizeof(aviator_msg));
+    strcpy(aviator_message.type, "closed");
+    send_all_message(&aviator_message);
+
+    // Considerando oficialmente o começo da fase de voo
+    is_bet_phase = 0;
+    is_flight_phase = 1;
+
+    float explosion_limit = game_explosion(active_players, total_bet);
+
+    while (mult < explosion_limit) {
+      memset(&aviator_message, 0, sizeof(aviator_msg));
+      strcpy(aviator_message.type, "multiplier");
+      aviator_message.value = mult;
+      send_all_message(&aviator_message);
+
+      // TO-DO adicionar log aqui do multiplicador
+      usleep(100000);
+      mult += 0.01;
+    }
+
+    // Informando aos clientes a explosão do avião
+    is_flight_phase = 0;
+    memset(&aviator_message, 0, sizeof(aviator_msg));
+    strcpy(aviator_message.type, "explode");
+    aviator_message.value = explosion_limit;
+    send_all_message(&aviator_message);
+    // TO-DO log da explosao deve ser feito
+
+    calculate_end_game();
   }
   return NULL;
+}
+
+// Função para fazer todos os cálculos referentes ao fim da rodada
+void calculate_end_game() {
+  aviator_msg aviator_message;
+
+  // Processar perdas dos jogadores que não sacaram
+  pthread_mutex_lock(&lock);
+  for (int i = 0; i < PLAYERS_MAX; i++) {
+    // Caso o jogador tenha feito uma aposta e não tenha realizado cashout
+    // deverá ser calculado a sua perda e o lucro da casa
+    if (clients[i].active && clients[i].has_bet && !clients[i].has_cashed_out) {
+      clients[i].profit -= clients[i].current_bet;
+      house_profit += clients[i].current_bet;
+
+      memset(&aviator_message, 0, sizeof(aviator_msg));
+      strcpy(aviator_message.type, "profit");
+      aviator_message.player_id = clients[i].player_id,
+      aviator_message.value = clients[i].profit,
+      aviator_message.player_profit = clients[i].profit,
+      aviator_message.house_profit = house_profit;
+
+      // TO-DO Log do profit
+      send(clients[i].socket_conn, &aviator_message, sizeof(aviator_msg), 0);
+    }
+  }
+  pthread_mutex_unlock(&lock);
 }
 
 // Função de handler para conexões de clientes
@@ -228,7 +290,8 @@ void *handle_client(void *arg) {
   aviator_msg aviator_message;
 
   while (client->active && server_running) {
-    // Enviar ao cliente que a rodada começou caso ele não possua apostas ainda
+    // Enviar ao cliente que a rodada começou caso ele não possua apostas
+    // ainda
     if (is_bet_phase && !client->has_bet) {
       memset(&aviator_message, 0, sizeof(aviator_msg));
       aviator_message.value = countdown;
@@ -340,8 +403,6 @@ void start_new_game() {
     countdown--;
   }
 
-  is_bet_phase = 0;
-  is_flight_phase = 1;
   // TO-DO colocar log para inicio da partida
 }
 
