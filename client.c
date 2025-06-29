@@ -36,6 +36,7 @@ int current_game_phase = WAIT;
 int has_bet_this_round = 0;
 float current_bet = 0;
 int has_received_start = 0;
+int has_cashedout_this_round = 0;
 
 typedef struct {
   int32_t player_id;
@@ -177,6 +178,7 @@ int main(int argc, char *argv[]) {
         current_game_phase = BET;
         has_bet_this_round = 0;
         current_bet = 0;
+        has_cashedout_this_round = 0;
 
         printf(
             "Rodada aberta! Digite o valor da aposta ou digite [Q] para sair "
@@ -208,6 +210,7 @@ int main(int argc, char *argv[]) {
       printf("Você sacou em %.2fx e ganhou R$ %.2f!\n",
              aviator_message.value / current_bet, aviator_message.value);
       printf("Profit atual: R$ %.2f\n", aviator_message.player_profit);
+      has_cashedout_this_round = 1;
       fflush(stdout);
 
     } else if (strcmp(aviator_message.type, "profit") == 0) {
@@ -216,7 +219,7 @@ int main(int argc, char *argv[]) {
       if (has_bet_this_round && current_game_phase == WAIT) {
         // Caso seja um profit de cashout não precisa indicar o profit atual,
         // dado que ja foi indicado
-        if (aviator_message.player_id != 0) {
+        if (!has_cashedout_this_round) {
           printf("Você perdeu R$ %.2f. Tente novamente na próxima rodada! "
                  "Aviãozinho tá pagando :)\n",
                  current_bet);
