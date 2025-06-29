@@ -358,14 +358,10 @@ void endWithErrorMessage(const char *message) {
 }
 
 float game_explosion(int num_of_players, float total_bet) {
-  if (num_of_players == 0)
-    return 2.0;
+  float constant = 0.01;
+  float gamma = 0.5;
 
-  float k = 100;
-  float alpha = 0.5;
-
-  float explosion = 1.0 + pow((num_of_players + total_bet / k), alpha);
-  return explosion;
+  return pow((1.0 + num_of_players + total_bet * constant), gamma);
 }
 
 // Função para enviar uma mensagem para todos os jogadores disponíveis
