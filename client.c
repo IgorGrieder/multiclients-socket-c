@@ -34,7 +34,7 @@ int client_running = 1;
 int client_socket;
 int current_game_phase = WAIT;
 int has_bet_this_round = 0;
-float current_bet = 0.0;
+float current_bet = 0;
 int has_received_start = 0;
 
 typedef struct {
@@ -177,7 +177,7 @@ int main(int argc, char *argv[]) {
       if (!has_received_start) {
         current_game_phase = BET;
         has_bet_this_round = 0;
-        current_bet = 0.0;
+        current_bet = 0;
 
         printf(
             "Rodada aberta! Digite o valor da aposta ou digite [Q] para sair "
@@ -259,7 +259,7 @@ void *handle_input() {
     input[strcspn(input, "\n")] = 0;
 
     if (strcmp(input, "Q") == 0 || strcmp(input, "q") == 0) {
-      // Quit command
+      // Comando de sair do jogo case insensitive
       memset(&aviator_message, 0, sizeof(aviator_msg));
       strcpy(aviator_message.type, "bye");
       send(client_socket, &aviator_message, sizeof(aviator_msg), 0);
@@ -271,7 +271,7 @@ void *handle_input() {
       break;
 
     } else if (strcmp(input, "C") == 0 || strcmp(input, "c") == 0) {
-      // Cashout command
+      // Comando de realizar cashout case insensitive
       if (current_game_phase == FlIGHT && has_bet_this_round) {
         memset(&aviator_message, 0, sizeof(aviator_msg));
         strcpy(aviator_message.type, "cashout");
@@ -279,7 +279,7 @@ void *handle_input() {
       }
 
     } else if (current_game_phase == BET && !has_bet_this_round) {
-      // Try to parse as bet value
+      // Computar input de uma possível aposta realizada
       if (validate_bet_input(input, &bet_value)) {
         memset(&aviator_message, 0, sizeof(aviator_msg));
         strcpy(aviator_message.type, "bet");
