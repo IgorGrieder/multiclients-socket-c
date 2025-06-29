@@ -50,11 +50,11 @@ void endWithErrorMessage(const char *message);
 void *handle_client(void *arg);
 void *handle_game(void *arg);
 void close_all_connections(int server_socket);
-float game_explosion();
+float game_explosion(int *act_players, float *bet_total);
 void send_all_message(aviator_msg *message);
 void start_new_game();
 void remove_client(int player_id);
-void reset_past_play(int *active_players, float *total_bet);
+void reset_past_play();
 void calculate_end_game();
 void shutdown_server(int signal);
 void logger(const char *event, int player_id, float multiplier, float explosion,
@@ -224,7 +224,6 @@ void *handle_game(void *arg) {
 
     float total_bet = 0;
     int active_players = 0;
-    reset_past_play(&active_players, &total_bet);
 
     // Fechando as apostas e comunicando aos clientes
     memset(&aviator_message, 0, sizeof(aviator_msg));
@@ -232,12 +231,11 @@ void *handle_game(void *arg) {
     send_all_message(&aviator_message);
 
     logger("closed", -1, 0, 0, active_players, total_bet, 0, 0, 0, 0);
+    float explosion_limit = game_explosion(&active_players, &total_bet);
 
     // Considerando oficialmente o começo da fase de voo
     is_bet_phase = 0;
     is_flight_phase = 1;
-
-    float explosion_limit = game_explosion();
 
     while (mult < explosion_limit) {
       memset(&aviator_message, 0, sizeof(aviator_msg));
@@ -393,19 +391,16 @@ void remove_client(int player_id) {
   pthread_mutex_unlock(&lock);
 }
 
-void reset_past_play(int *active_players, float *total_bet) {
+void reset_past_play() {
   pthread_mutex_lock(&lock);
   for (int i = 0; i < PLAYERS_MAX; i++) {
     if (clients[i].active) {
       clients[i].has_bet = 0;
       clients[i].has_cashed_out = 0;
       clients[i].current_bet = 0;
-      (*active_players)++;
-      *total_bet += clients[i].current_bet;
     }
   }
   pthread_mutex_unlock(&lock);
-  logger("start", -1, 0, 0, *active_players, 0, 0, 0, 0, 0);
 }
 
 // Função para preparar o inicio de um novo jogo
@@ -415,6 +410,8 @@ void start_new_game() {
   is_flight_phase = 0;
   countdown = 10;
   mult = 0;
+
+  reset_past_play();
 
   // TO-DO colocar um log para o servidor
   while (countdown > 0) {
@@ -443,24 +440,25 @@ void endWithErrorMessage(const char *message) {
   exit(EXIT_FAILURE);
 }
 
-float game_explosion() {
+float game_explosion(int *act_players, float *bet_total) {
   // Checando o valor total apostado e o valor de jogadores
   int active_players = 0;
   float total_bet = 0;
+
   pthread_mutex_lock(&lock);
   for (int i = 0; i < PLAYERS_MAX; i++) {
-    if (clients[i].active) {
-      clients[i].has_bet = 0;
-      clients[i].has_cashed_out = 0;
-      clients[i].current_bet = 0;
+    if (clients[i].active && clients[i].has_bet) {
       active_players++;
       total_bet += clients[i].current_bet;
     }
   }
   pthread_mutex_unlock(&lock);
+
   float constant = 0.01;
   float gamma = 0.5;
 
+  printf("Jogadores ativos: %d\n", active_players);
+  printf("Dinheior: %f\n", total_bet);
   return pow((1.0 + active_players + total_bet * constant), gamma);
 }
 
