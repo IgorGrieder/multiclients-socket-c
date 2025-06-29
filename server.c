@@ -228,8 +228,9 @@ void *handle_game(void *arg) {
     memset(&aviator_message, 0, sizeof(aviator_msg));
     strcpy(aviator_message.type, "closed");
     send_all_message(&aviator_message);
-    logger("closed", -1, 0, 0, active_players, total_bet, 0, 0, 0, 0);
+
     float explosion_limit = game_explosion(&active_players, &total_bet);
+    logger("closed", -1, 0, 0, active_players, total_bet, 0, 0, 0, 0);
 
     // Considerando oficialmente o começo da fase de voo
     is_bet_phase = 0;
@@ -257,8 +258,8 @@ void *handle_game(void *arg) {
 
     calculate_end_game();
 
-    // Fazendo uma pausa de 5 segundos para a próxima rodada - Opcional
-    sleep(10);
+    // Fazendo uma pausa de 5 segundos para a próxima rodada
+    sleep(5);
   }
   return NULL;
 }
@@ -474,6 +475,9 @@ float game_explosion(int *act_players, float *bet_total) {
   float constant = 0.01;
   float gamma = 0.5;
 
+  *act_players = active_players;
+  *bet_total = total_bet;
+
   return pow((1.0 + active_players + total_bet * constant), gamma);
 }
 
@@ -514,6 +518,7 @@ void shutdown_server(int signal) {
   }
   pthread_mutex_unlock(&lock);
 
+  printf("Encerrando o servidor.\n");
   close(server_socket);
   exit(0);
 }
