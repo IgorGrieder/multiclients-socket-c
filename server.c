@@ -414,6 +414,7 @@ void start_new_game() {
   is_bet_phase = 1;
   is_flight_phase = 0;
   countdown = 10;
+  mult = 0;
 
   // TO-DO colocar um log para o servidor
   while (countdown > 0) {
