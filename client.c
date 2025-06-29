@@ -328,16 +328,16 @@ int validate_bet_input(const char *input, float *bet_value) {
   char *endptr;
   float value = strtof(input, &endptr);
 
-  // Check if conversion was successful and entire string was consumed
+  // Checando se todo o input foi recolhido
   if (endptr == input || *endptr != '\0') {
-    return 0; // Invalid format
+    return 0; // Formato inválido
   }
 
-  // Check if value is positive
+  // Verificando se o valor do input é negativo
   if (value <= 0) {
-    return 0; // Invalid value
+    return 0; // Formato inválido
   }
 
   *bet_value = value;
-  return 1; // Valid
+  return 1; // Formato válido
 }
