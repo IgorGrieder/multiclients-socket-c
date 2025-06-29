@@ -301,6 +301,13 @@ void *handle_client(void *arg) {
   aviator_msg aviator_message;
 
   while (client->active && server_running) {
+    // Caso o cliente entre no meio da rodada
+    if (is_flight_phase) {
+      memset(&aviator_message, 0, sizeof(aviator_msg));
+      strcpy(aviator_message.type, "closed");
+      send(client->socket_conn, &aviator_message, sizeof(aviator_msg), 0);
+    }
+
     // Esperando resposta para apostas do cliente
     recv(client->socket_conn, &aviator_message, sizeof(aviator_msg), 0);
 

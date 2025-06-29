@@ -217,7 +217,6 @@ int main(int argc, char *argv[]) {
       if (has_bet_this_round && current_game_phase == WAIT) {
         // Caso seja um profit de cashout não precisa indicar o profit atual,
         // dado que ja foi indicado
-
         if (!has_cashedout_this_round) {
           printf("Você perdeu R$ %.2f. Tente novamente na próxima rodada! "
                  "Aviãozinho tá pagando :)\n",
@@ -299,7 +298,6 @@ void *handle_input() {
       }
 
     } else {
-      // Invalid command for current state
       printf("Error: Invalid command\n");
       fflush(stdout);
     }
@@ -316,7 +314,6 @@ void shutdown_client() {
          "bugado. Volte logo, %s.\n",
          nickname);
 
-  // Send bye message to server
   memset(&aviator_message, 0, sizeof(aviator_msg));
   strcpy(aviator_message.type, "bye");
   send(client_socket, &aviator_message, sizeof(aviator_msg), 0);
