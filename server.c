@@ -49,7 +49,6 @@ float countdown = 10;
 void endWithErrorMessage(const char *message);
 void *handle_client(void *arg);
 void *handle_game(void *arg);
-void close_all_connections(int server_socket);
 float game_explosion(int *act_players, float *bet_total);
 void send_all_message(aviator_msg *message);
 void start_new_game();
@@ -195,7 +194,7 @@ int main(int argc, char *argv[]) {
   }
 
   // Fechando as conexões gerais
-  close_all_connections(server_socket);
+  close(server_socket);
 
   return EXIT_SUCCESS;
 }
@@ -229,7 +228,6 @@ void *handle_game(void *arg) {
     memset(&aviator_message, 0, sizeof(aviator_msg));
     strcpy(aviator_message.type, "closed");
     send_all_message(&aviator_message);
-
     logger("closed", -1, 0, 0, active_players, total_bet, 0, 0, 0, 0);
     float explosion_limit = game_explosion(&active_players, &total_bet);
 
@@ -425,12 +423,6 @@ void start_new_game() {
     sleep(1);
     countdown--;
   }
-}
-
-// Função para fechar todas as conexões
-void close_all_connections(int server_socket) {
-  close(server_socket);
-  exit(0);
 }
 
 // Função para exibir erros genéricos e finalizar a execução do programa sem
