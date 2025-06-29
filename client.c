@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #define STR_LEN 11
+#define MAX_NICKNAME 13
 
 // Hoisting de funções
 void endWithErrorMessage(const char *message);
@@ -35,14 +36,17 @@ int main(int argc, char *argv[]) {
   int stop_game = 1;
   aviator_msg aviator_message;
 
-  const char *plays[] = {"Nuclear Attack", "Intercept Attack", "Cyber Attack",
-                         "Drone Strike", "Bio Attack"};
+  // Checagens para inicio do cliente
+  if (argc != 5) {
+    endWithErrorMessage("Error: Invalid number of arguments");
+  }
 
-  // Caso o numero de argumentos passados ao processo não seja condizente com o
-  // necessário deve-se encerrar o programa
-  if (argc != 3) {
-    endWithErrorMessage("Insira corretamente a quantidade de argumentos para o "
-                        "sevridor \n <IP> <Porta> \n");
+  if (strcmp(argv[3], "-nick") != 0) {
+    endWithErrorMessage("Error: Expected '-nick' argument");
+  }
+
+  if (strlen(argv[4]) > MAX_NICKNAME) {
+    endWithErrorMessage("Error: Nickname too long (max 13)");
   }
 
   // Comparando o argumento de versão do protocolo para definir qual tipo foi
