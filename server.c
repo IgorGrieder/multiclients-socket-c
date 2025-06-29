@@ -212,6 +212,7 @@ void *handle_game(void *arg) {
       pthread_mutex_lock(&lock);
       for (int i = 0; i < PLAYERS_MAX; i++) {
         if (clients[i].active) {
+          client_num++;
           break;
         }
       }
