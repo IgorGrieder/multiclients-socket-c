@@ -211,14 +211,15 @@ int main(int argc, char *argv[]) {
       fflush(stdout);
 
     } else if (strcmp(aviator_message.type, "profit") == 0) {
-
+      printf("Jogador fez cashout e caiu aqui para ver profit da casa\n");
+      printf("Vendo o player id que chegou: %d\n", aviator_message.player_id);
       if (has_bet_this_round && current_game_phase == WAIT) {
-        printf("Você perdeu R$ %.2f. Tente novamente na próxima rodada! "
-               "Aviãozinho tá pagando :)\n",
-               current_bet);
         // Caso seja um profit de cashout não precisa indicar o profit atual,
         // dado que ja foi indicado
         if (aviator_message.player_id != 0) {
+          printf("Você perdeu R$ %.2f. Tente novamente na próxima rodada! "
+                 "Aviãozinho tá pagando :)\n",
+                 current_bet);
           printf("Profit atual: R$ %.2f\n", aviator_message.player_profit);
           printf("Profit da casa: R$ %.2f\n", aviator_message.house_profit);
         } else {

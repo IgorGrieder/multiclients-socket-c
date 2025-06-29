@@ -257,7 +257,7 @@ void *handle_game(void *arg) {
     calculate_end_game();
 
     // Fazendo uma pausa de 5 segundos para a próxima rodada - Opcional
-    sleep(5);
+    sleep(10);
   }
   return NULL;
 }
@@ -406,7 +406,7 @@ void start_new_game() {
   is_bet_phase = 1;
   is_flight_phase = 0;
   countdown = 10;
-  mult = 0;
+  mult = 1;
 
   reset_past_play();
 
@@ -475,7 +475,8 @@ void shutdown_server(int signal) {
   memset(&aviator_message, 0, sizeof(aviator_msg));
   strcpy(aviator_message.type, "bye");
   send_all_message(&aviator_message);
-  // TO-DO logar aqui o fim da conexao o servidor
+
+  logger("bye", -1, 0, 0, 0, 0, 0, 0, 0, 0);
 
   // Fechando todos os sockets
   pthread_mutex_lock(&lock);
