@@ -55,6 +55,7 @@ void close_all_connections(int server_socket);
 float game_explosion(int num_of_players, float total_bet);
 void send_all_message(aviator_msg *message);
 void start_new_game();
+void remove_client(int player_id);
 
 int main(int argc, char *argv[]) {
   int server_socket;
@@ -277,13 +278,33 @@ void *handle_client(void *arg) {
 
       // TO-DO log profit servdior
     } else if (strcmp(aviator_message.type, "bye") == 0) {
-      // TO-DO fazer funcao de desligamento do cliente
       remove_client(client->player_id);
       break;
     }
   }
 
   return NULL;
+}
+
+// Função para remover um client do jogo, utilizando a flag de active
+void remove_client(int player_id) {
+  pthread_mutex_lock(&lock);
+  for (int i = 0; i < PLAYERS_MAX; i++) {
+    if (clients[i].player_id == player_id) {
+      // TO-DO log de evento de remocao
+
+      clients[i].active = 0;
+      clients[i].player_id = 0;
+      clients[i].profit = 0;
+      clients[i].current_bet = 0;
+      clients[i].has_bet = 0;
+      clients[i].has_cashed_out = 0;
+      close(clients[i].socket_conn);
+
+      break;
+    }
+  }
+  pthread_mutex_unlock(&lock);
 }
 
 // Função para preparar o inicio de um novo jogo
