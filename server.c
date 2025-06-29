@@ -230,6 +230,8 @@ void *handle_game(void *arg) {
     strcpy(aviator_message.type, "closed");
     send_all_message(&aviator_message);
 
+    logger("closed", -1, 0, 0, active_players, total_bet, 0, 0, 0, 0);
+
     // Considerando oficialmente o começo da fase de voo
     is_bet_phase = 0;
     is_flight_phase = 1;
@@ -242,7 +244,8 @@ void *handle_game(void *arg) {
       aviator_message.value = mult;
       send_all_message(&aviator_message);
 
-      // TO-DO adicionar log aqui do multiplicador
+      logger("multiplier", -1, mult, 0, 0, 0, 0, 0, 0, 0);
+
       usleep(100000);
       mult += 0.01;
     }
@@ -253,7 +256,7 @@ void *handle_game(void *arg) {
     strcpy(aviator_message.type, "explode");
     aviator_message.value = explosion_limit;
     send_all_message(&aviator_message);
-    // TO-DO log da explosao deve ser feito
+    logger("explode", -1, explosion_limit, 0, 0, 0, 0, 0, 0, 0);
 
     calculate_end_game();
 
@@ -283,7 +286,8 @@ void calculate_end_game() {
       aviator_message.player_profit = clients[i].profit,
       aviator_message.house_profit = house_profit;
 
-      // TO-DO Log do profit
+      logger("profit", clients[i].player_id, 0, 0, 0, 0, 0, 0,
+             clients[i].profit, 0);
       send(clients[i].socket_conn, &aviator_message, sizeof(aviator_msg), 0);
     }
   }
@@ -319,7 +323,22 @@ void *handle_client(void *arg) {
       client->has_bet = 1;
       client->has_cashed_out = 0;
 
-      // TO-DO Logar aposta do cliente
+      // Calcular total de apostas e número de jogadores para o log
+      int num_players = 0;
+      float total_bet = 0;
+
+      pthread_mutex_lock(&lock);
+      for (int i = 0; i < PLAYERS_MAX; i++) {
+        if (clients[i].active && clients[i].has_bet) {
+          num_players++;
+          total_bet += clients[i].current_bet;
+        }
+      }
+      pthread_mutex_unlock(&lock);
+
+      logger("bet", client->player_id, 0, 0, num_players, total_bet,
+             client->current_bet, 0, 0, 0);
+
     } else if (strcmp(aviator_message.type, "cashout") == 0 &&
                is_flight_phase) {
       // Checando se o cliente já não realizou um cashout
@@ -335,7 +354,7 @@ void *handle_client(void *arg) {
       client->profit += transaction_balance;
       house_profit -= transaction_balance;
 
-      // To-DO log no servidor do cashout
+      logger("cashout", client->player_id, mult, 0, 0, 0, 0, 0, 0, 0);
 
       memset(&aviator_message, 0, sizeof(aviator_msg));
       strcpy(aviator_message.type, "payout");
@@ -345,13 +364,13 @@ void *handle_client(void *arg) {
       aviator_message.house_profit = house_profit;
       send(client->socket_conn, &aviator_message, sizeof(aviator_msg), 0);
 
-      // TO-DO Log do payout no servidor
+      logger("payout", client->player_id, 0, 0, 0, 0, 0, payout, 0, 0);
 
       // Enviar profit atualizado do jogador
       strcpy(aviator_message.type, "profit");
       send(client->socket_conn, &aviator_message, sizeof(aviator_msg), 0);
 
-      // TO-DO log profit servdior
+      logger("profit", client->player_id, 0, 0, 0, 0, 0, 0, client->profit, 0);
     } else if (strcmp(aviator_message.type, "bye") == 0) {
       remove_client(client->player_id);
       break;
@@ -366,7 +385,6 @@ void remove_client(int player_id) {
   pthread_mutex_lock(&lock);
   for (int i = 0; i < PLAYERS_MAX; i++) {
     if (clients[i].player_id == player_id) {
-      // TO-DO log de evento de remocao
 
       clients[i].active = 0;
       clients[i].player_id = 0;
@@ -375,6 +393,8 @@ void remove_client(int player_id) {
       clients[i].has_bet = 0;
       clients[i].has_cashed_out = 0;
       close(clients[i].socket_conn);
+
+      logger("bye", player_id, 0, 0, 0, 0, 0, 0, 0, 0);
 
       break;
     }
@@ -394,6 +414,7 @@ void reset_past_play(int *active_players, float *total_bet) {
     }
   }
   pthread_mutex_unlock(&lock);
+  logger("start", -1, 0, 0, *active_players, 0, 0, 0, 0, 0);
 }
 
 // Função para preparar o inicio de um novo jogo
@@ -408,13 +429,12 @@ void start_new_game() {
     sleep(1);
     countdown--;
   }
-
-  // TO-DO colocar log para inicio da partida
 }
 
 // Função para fechar todas as conexões
 void close_all_connections(int server_socket) {
-  // TO-DO
+  close(server_socket);
+  exit(0);
 }
 
 // Função para exibir erros genéricos e finalizar a execução do programa sem
