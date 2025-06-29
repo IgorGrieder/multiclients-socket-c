@@ -412,15 +412,18 @@ void remove_client(int player_id) {
 }
 
 void reset_past_play() {
+  int active_clients = 0;
   pthread_mutex_lock(&lock);
   for (int i = 0; i < PLAYERS_MAX; i++) {
     if (clients[i].active) {
+      active_clients++;
       clients[i].has_bet = 0;
       clients[i].has_cashed_out = 0;
       clients[i].current_bet = 0;
     }
   }
   pthread_mutex_unlock(&lock);
+  logger("start", -1, 0, 0, active_clients, 0, 0, 0, 0, 0);
 }
 
 // Função para preparar o inicio de um novo jogo
