@@ -1,6 +1,8 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <pthread.h>
+#include <stdatomic.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,10 +13,15 @@
 
 #define STR_LEN 11
 #define MAX_NICKNAME 13
+#define MAX_LEN 256
 
 // Hoisting de funções
 void endWithErrorMessage(const char *message);
+void shutdown_client();
+void *handle_input();
+int validate_bet_input(const char *input, float *bet_value);
 
+// ENUM para fazer o tracking do estato do jogo
 typedef enum {
   WAIT,
   BET,
@@ -25,7 +32,7 @@ typedef enum {
 char nickname[MAX_NICKNAME];
 int client_running = 1;
 int client_socket;
-int current_game_phase = WAIT; // 0: waiting, 1: betting phase, 2: flight phase
+int current_game_phase = WAIT;
 int has_bet_this_round = 0;
 float current_bet = 0.0;
 
@@ -42,6 +49,7 @@ int main(int argc, char *argv[]) {
   struct sockaddr_in6 client_addr_ipv6;
   struct addrinfo criteria;
   struct addrinfo *response;
+  pthread_t input_thread;
 
   char *server_IP = argv[1];
   char *server_port = argv[2];
@@ -61,6 +69,10 @@ int main(int argc, char *argv[]) {
   if (strlen(argv[4]) > MAX_NICKNAME) {
     endWithErrorMessage("Error: Nickname too long (max 13)");
   }
+
+  strcpy(nickname, argv[4]);
+
+  signal(SIGINT, shutdown_client);
 
   // Comparando o argumento de versão do protocolo para definir qual tipo foi
   // selecionado
@@ -135,7 +147,8 @@ int main(int argc, char *argv[]) {
         endWithErrorMessage("Invalid address");
       }
 
-      // Conectando ao servidor - Um loop infinito ate que a conexao seja aceita
+      // Conectando ao servidor - Um loop infinito ate que a conexao seja
+      // aceita
       int checkConnection;
       checkConnection =
           connect(client_socket, (struct sockaddr *)&client_addr_ipv6,
@@ -148,19 +161,17 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  pthread_create(&input_thread, NULL, handle_input, NULL);
+
   printf("Conected\n");
 
   // Loop sem fim de execução do jogo
   while (client_running) {
-    ssize_t bytes_received =
-        recv(client_socket, &aviator_message, sizeof(aviator_msg), 0);
+    // Esperando contato do servidor
+    recv(client_socket, &aviator_message, sizeof(aviator_msg), 0);
 
-    if (bytes_received <= 0) {
-      // Connection lost
-      break;
-    }
-
-    // Process different message types
+    // Cláusula para processar os diferentes tipos de evetos que podem ser
+    // enviados pelo servidor ao cliente
     if (strcmp(aviator_message.type, "start") == 0) {
       current_game_phase = BET;
       has_bet_this_round = 0;
@@ -197,16 +208,13 @@ int main(int argc, char *argv[]) {
 
     } else if (strcmp(aviator_message.type, "profit") == 0) {
       if (aviator_message.player_id != 0) {
-        // Individual profit update
         if (has_bet_this_round && current_game_phase == WAIT) {
-          // This means we lost our bet
           printf("Você perdeu R$ %.2f. Tente novamente na próxima rodada! "
                  "Aviãozinho tá pagando :)\n",
                  current_bet);
         }
         printf("Profit atual: R$ %.2f\n", aviator_message.player_profit);
       } else {
-        // House profit update
         printf("Profit da casa: R$ %.2f\n", aviator_message.house_profit);
       }
       fflush(stdout);
@@ -227,6 +235,69 @@ void endWithErrorMessage(const char *message) {
   exit(EXIT_FAILURE);
 }
 
+// Função para ativamente ficar capturando todo tipo de input sendo feito no
+// terminal a todo momento e de acorod com isso poder controlar situações como
+// cashout, bet etc
+void *handle_input() {
+  char input[MAX_LEN];
+  aviator_msg aviator_message;
+  float bet_value;
+
+  while (client_running) {
+    if (fgets(input, sizeof(input), stdin) == NULL) {
+      continue;
+    }
+
+    // Remove newline
+    input[strcspn(input, "\n")] = 0;
+
+    if (strcmp(input, "Q") == 0 || strcmp(input, "q") == 0) {
+      // Quit command
+      memset(&aviator_message, 0, sizeof(aviator_msg));
+      strcpy(aviator_message.type, "bye");
+      send(client_socket, &aviator_message, sizeof(aviator_msg), 0);
+
+      printf("Aposte com responsabilidade. A plataforma é nova e tá com "
+             "horário bugado. Volte logo, %s.\n",
+             nickname);
+      client_running = 0;
+      break;
+
+    } else if (strcmp(input, "C") == 0 || strcmp(input, "c") == 0) {
+      // Cashout command
+      if (current_game_phase == FlIGHT && has_bet_this_round) {
+        memset(&aviator_message, 0, sizeof(aviator_msg));
+        strcpy(aviator_message.type, "cashout");
+        send(client_socket, &aviator_message, sizeof(aviator_msg), 0);
+      }
+
+    } else if (current_game_phase == BET && !has_bet_this_round) {
+      // Try to parse as bet value
+      if (validate_bet_input(input, &bet_value)) {
+        memset(&aviator_message, 0, sizeof(aviator_msg));
+        strcpy(aviator_message.type, "bet");
+        aviator_message.value = bet_value;
+        send(client_socket, &aviator_message, sizeof(aviator_msg), 0);
+
+        current_bet = bet_value;
+        has_bet_this_round = 1;
+        printf("Aposta recebida: R$ %.2f\n", bet_value);
+        fflush(stdout);
+      } else {
+        printf("Error: Invalid bet value\n");
+        fflush(stdout);
+      }
+
+    } else {
+      // Invalid command for current state
+      printf("Error: Invalid command\n");
+      fflush(stdout);
+    }
+  }
+
+  return NULL;
+}
+
 // Função para indicar o servidor que o cliente não irá mais jogar
 // aviator_msg message;
 void shutdown_client() {
@@ -243,4 +314,23 @@ void shutdown_client() {
   client_running = 0;
   close(client_socket);
   exit(0);
+}
+
+// Função para validar se o input da aposta pode ser feito ou não
+int validate_bet_input(const char *input, float *bet_value) {
+  char *endptr;
+  float value = strtof(input, &endptr);
+
+  // Check if conversion was successful and entire string was consumed
+  if (endptr == input || *endptr != '\0') {
+    return 0; // Invalid format
+  }
+
+  // Check if value is positive
+  if (value <= 0) {
+    return 0; // Invalid value
+  }
+
+  *bet_value = value;
+  return 1; // Valid
 }
