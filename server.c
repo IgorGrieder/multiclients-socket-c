@@ -301,16 +301,6 @@ void *handle_client(void *arg) {
   aviator_msg aviator_message;
 
   while (client->active && server_running) {
-    // Enviar ao cliente que a rodada começou caso ele não possua apostas
-    // ainda
-    if (is_bet_phase && !client->has_bet) {
-      memset(&aviator_message, 0, sizeof(aviator_msg));
-      aviator_message.value = countdown;
-      strcpy(aviator_message.type, "start");
-
-      send(client->socket_conn, &aviator_message, sizeof(aviator_msg), 0);
-    }
-
     // Esperando resposta para apostas do cliente
     recv(client->socket_conn, &aviator_message, sizeof(aviator_msg), 0);
 
@@ -420,13 +410,20 @@ void reset_past_play(int *active_players, float *total_bet) {
 
 // Função para preparar o inicio de um novo jogo
 void start_new_game() {
+  aviator_msg aviator_message;
   is_bet_phase = 1;
   is_flight_phase = 0;
   countdown = 10;
 
   // TO-DO colocar um log para o servidor
   while (countdown > 0) {
-    // Esperar 1 segundo para a nova iteração
+    // Esperar 1 segundo para a nova iteração e enviar aos clientes o countdown
+    // referente a sua conexão
+    memset(&aviator_message, 0, sizeof(aviator_msg));
+    aviator_message.value = countdown;
+    strcpy(aviator_message.type, "start");
+    send_all_message(&aviator_message);
+
     sleep(1);
     countdown--;
   }
