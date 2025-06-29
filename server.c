@@ -353,7 +353,9 @@ void *handle_client(void *arg) {
       logger("payout", client->player_id, 0, 0, 0, 0, 0, payout, 0, 0);
 
       // Enviar profit atualizado do jogador
+      memset(&aviator_message, 0, sizeof(aviator_msg));
       strcpy(aviator_message.type, "profit");
+      aviator_message.player_id = client->player_id;
       send(client->socket_conn, &aviator_message, sizeof(aviator_msg), 0);
 
       logger("profit", client->player_id, 0, 0, 0, 0, 0, 0, client->profit, 0);
