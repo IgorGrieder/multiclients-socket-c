@@ -179,7 +179,6 @@ int main(int argc, char *argv[]) {
       // Invocação da função do jogo, sem bloquear a thread de conexões
       pthread_create(&clients[available_idx].client_thread, NULL, handle_client,
                      &clients[available_idx]);
-      printf("Client conected.\n");
 
       user_id++;
     } else {
@@ -449,8 +448,6 @@ float game_explosion(int *act_players, float *bet_total) {
   float constant = 0.01;
   float gamma = 0.5;
 
-  printf("Jogadores ativos: %d\n", active_players);
-  printf("Dinheior: %f\n", total_bet);
   return pow((1.0 + active_players + total_bet * constant), gamma);
 }
 

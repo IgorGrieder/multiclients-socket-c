@@ -162,9 +162,8 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  // Thread para lidar com os inputs de maneira separada a execução do jogo
   pthread_create(&input_thread, NULL, handle_input, NULL);
-
-  printf("Conected\n");
 
   // Loop sem fim de execução do jogo
   while (client_running) {
@@ -212,6 +211,7 @@ int main(int argc, char *argv[]) {
       fflush(stdout);
 
     } else if (strcmp(aviator_message.type, "profit") == 0) {
+
       if (has_bet_this_round && current_game_phase == WAIT) {
         printf("Você perdeu R$ %.2f. Tente novamente na próxima rodada! "
                "Aviãozinho tá pagando :)\n",
