@@ -35,6 +35,7 @@ int client_socket;
 int current_game_phase = WAIT;
 int has_bet_this_round = 0;
 float current_bet = 0.0;
+int has_received_start = 0;
 
 typedef struct {
   int32_t player_id;
@@ -173,14 +174,18 @@ int main(int argc, char *argv[]) {
     // Cláusula para processar os diferentes tipos de evetos que podem ser
     // enviados pelo servidor ao cliente
     if (strcmp(aviator_message.type, "start") == 0) {
-      current_game_phase = BET;
-      has_bet_this_round = 0;
-      current_bet = 0.0;
+      if (!has_received_start) {
+        current_game_phase = BET;
+        has_bet_this_round = 0;
+        current_bet = 0.0;
 
-      printf("Rodada aberta! Digite o valor da aposta ou digite [Q] para sair "
-             "(%.0f segundos restantes):\n",
-             aviator_message.value);
-      fflush(stdout);
+        printf(
+            "Rodada aberta! Digite o valor da aposta ou digite [Q] para sair "
+            "(%.0f segundos restantes):\n",
+            aviator_message.value);
+        fflush(stdout);
+        has_received_start++;
+      }
 
     } else if (strcmp(aviator_message.type, "closed") == 0) {
       current_game_phase = FlIGHT;
@@ -199,7 +204,7 @@ int main(int argc, char *argv[]) {
       current_game_phase = WAIT;
       printf("Aviãozinho explodiu em: %.2fx\n", aviator_message.value);
       fflush(stdout);
-
+      has_received_start = 0;
     } else if (strcmp(aviator_message.type, "payout") == 0) {
       printf("Você sacou em %.2fx e ganhou R$ %.2f!\n",
              aviator_message.value / current_bet, aviator_message.value);
