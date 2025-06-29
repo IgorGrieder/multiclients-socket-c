@@ -350,8 +350,10 @@ void *handle_client(void *arg) {
       float payout = client->current_bet * mult;
       float transaction_balance = payout - client->current_bet;
 
+      pthread_mutex_lock(&lock);
       client->profit += transaction_balance;
       house_profit -= transaction_balance;
+      pthread_mutex_unlock(&lock);
 
       logger("cashout", client->player_id, mult, 0, 0, 0, 0, 0, 0, 0);
 
