@@ -207,18 +207,20 @@ int main(int argc, char *argv[]) {
       fflush(stdout);
 
     } else if (strcmp(aviator_message.type, "profit") == 0) {
-      if (aviator_message.player_id != 0) {
-        if (has_bet_this_round && current_game_phase == WAIT) {
-          printf("Você perdeu R$ %.2f. Tente novamente na próxima rodada! "
-                 "Aviãozinho tá pagando :)\n",
-                 current_bet);
+      if (has_bet_this_round && current_game_phase == WAIT) {
+        printf("Você perdeu R$ %.2f. Tente novamente na próxima rodada! "
+               "Aviãozinho tá pagando :)\n",
+               current_bet);
+        // Caso seja um profit de cashout não precisa indicar o profit atual,
+        // dado que ja foi indicado
+        if (aviator_message.player_id != 0) {
+          printf("Profit atual: R$ %.2f\n", aviator_message.player_profit);
+          printf("Profit da casa: R$ %.2f\n", aviator_message.house_profit);
+        } else {
+          printf("Profit da casa: R$ %.2f\n", aviator_message.house_profit);
         }
-        printf("Profit atual: R$ %.2f\n", aviator_message.player_profit);
-      } else {
-        printf("Profit da casa: R$ %.2f\n", aviator_message.house_profit);
       }
       fflush(stdout);
-
     } else if (strcmp(aviator_message.type, "bye") == 0) {
       printf("O servidor caiu, mas sua esperança pode continuar de pé. Até "
              "breve!\n");
